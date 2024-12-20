@@ -1,0 +1,10 @@
+{
+  "name": "pkgless-diff",
+  "main": "index.ts",
+  "compatibility_date": "2022-07-12",
+  "workers_dev": true,
+  "compatibility_flags": [
+    "streams_enable_constructors",
+    "transformstream_enable_standard_constructor"
+  ]
+}

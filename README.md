@@ -2,33 +2,23 @@
 
 This is a simple human-readable and AI-readable diff tool. 
 
+`GET` [https://pkgless-diff.jacobparis.workers.dev/](https://pkgless-diff.jacobparis.workers.dev/) - show example diff in text format
+
+`GET` [https://pkgless-diff.jacobparis.workers.dev/html](https://pkgless-diff.jacobparis.workers.dev/html) - show example diff in html format
+
+send a `POST` request to the same url with a body of `{ a: string, b: string, language: string }` to make your own diff
+
+```sh
+npm install @pkgless/diff
+```
+
+```ts
+import { diffTokens, tokenize, diffToTextStream } from '@pkgless/diff'
+```
 ## Features
 
 - **Formatting Tolerance**: Ignores indents, semicolons, and trailing commas.
 - **Word-Level Diff**: Breaks long strings into words for detailed diffs.
-
-## Usage
-
-
-### tokenize
-
-Converts source code into tokens, supporting JavaScript, TypeScript, and plain text.
-
-
-```ts
-function tokenize(args: {
-  content: string
-  language: string
-}): {
-  tokens: DiffToken[]
-  indentType: string // "\t"
-  indentAmount: number // 1
-}
-```
-
-### diffTokens
-
-Accepts the output of `tokenize` for two inputs and returns a ReadableStream of diff operations.
 
 ### streaming text
 

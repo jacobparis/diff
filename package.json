@@ -1,7 +1,8 @@
 {
-  "workspaces": {
-    "packages": [
-      "packages/*"
-    ]
-  }
+  "overrides": {
+    "esbuild": "0.24.0"
+  },
+  "workspaces": [
+    "packages/*"
+  ]
 }
