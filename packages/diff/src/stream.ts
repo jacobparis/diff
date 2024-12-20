@@ -1,4 +1,4 @@
-import { DiffOperation } from "./diff"
+import { DiffOperation } from "./diff.js"
 
 export function diffToTextStream(
   diffStream: ReadableStream<DiffOperation>,

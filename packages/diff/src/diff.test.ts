@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest"
-import { tokenize } from "./tokenize"
-import { diffTokens } from "./diff"
-import { diffToString } from "./stream"
+import { tokenize } from "./tokenize.js"
+import { diffTokens } from "./diff.js"
+import { diffToString } from "./stream.js"
 
 const changeQuotes = {
   a: "import * as React from 'react'",

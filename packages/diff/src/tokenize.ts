@@ -1,6 +1,6 @@
-import { tokenizeJavaScript } from "./tokenize-js"
-import { tokenizeTypeScript } from "./tokenize-ts"
-import { tokenizeText } from "./tokenize-txt"
+import { tokenizeJavaScript } from "./tokenize-js.js"
+import { tokenizeTypeScript } from "./tokenize-ts.js"
+import { tokenizeText } from "./tokenize-txt.js"
 
 export function tokenize({
   content,

@@ -1,4 +1,4 @@
-import { DiffToken } from "./diff"
+import { DiffToken } from "./diff.js"
 
 export function tokenizeText(sourceCode: string) {
   const tokens: Array<DiffToken> = []

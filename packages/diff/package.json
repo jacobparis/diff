@@ -1,15 +1,38 @@
 {
-  "name": "diff",
-  "version": "0.1.0",
-  "description": "",
-  "main": "index.js",
+  "name": "@pkgless/diff",
+  "type": "module",
+  "version": "0.1.6",
+  "description": "A diff library",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "import": "./dist/index.cjs",
+        "require": "./dist/index.cjs"
+      }
+    }
+  },
   "scripts": {
-    "test": "vitest"
+    "test": "vitest",
+    "build": "tsup --config tsup.config.ts",
+    "prepublishOnly": "npm run build"
   },
   "author": "Jacob Paris <jacob@jacobparis.com>",
   "license": "ISC",
   "devDependencies": {
-    "vitest": "^2.1.8"
+    "esbuild": "0.24.0",
+    "tsup": "8.3.5",
+    "vitest": "2.1.8"
   },
   "dependencies": {
     "acorn": "^8.14.0",

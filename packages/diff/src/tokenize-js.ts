@@ -1,5 +1,5 @@
-import { IndentController } from "./indents"
-import { tokenizeSubstrings } from "./tokenize-substrings"
+import { IndentController } from "./indents.js"
+import { tokenizeSubstrings } from "./tokenize-substrings.js"
 import { Parser } from "acorn"
 
 export function tokenizeJavaScript(sourceCode: string) {

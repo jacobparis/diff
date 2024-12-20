@@ -1,7 +1,7 @@
 import ts from "typescript"
-import { tokenizeSubstrings } from "./tokenize-substrings"
-import { DiffToken } from "./diff"
-import { IndentController } from "./indents"
+import { tokenizeSubstrings } from "./tokenize-substrings.js"
+import { DiffToken } from "./diff.js"
+import { IndentController } from "./indents.js"
 
 export function tokenizeTypeScript(sourceCode: string) {
   const tokens: Array<DiffToken> = []
