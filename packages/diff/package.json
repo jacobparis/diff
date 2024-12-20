@@ -1,0 +1,18 @@
+{
+  "name": "diff",
+  "version": "0.1.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "vitest"
+  },
+  "author": "Jacob Paris <jacob@jacobparis.com>",
+  "license": "ISC",
+  "devDependencies": {
+    "vitest": "^2.1.8"
+  },
+  "dependencies": {
+    "acorn": "^8.14.0",
+    "typescript": "^5.7.2"
+  }
+}
