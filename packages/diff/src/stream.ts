@@ -1,6 +1,35 @@
 import { DiffOperation } from "./diff.js"
+import { Writer } from "./writer.js"
+export class ReadableStreamWriter extends Writer<ReadableStream<DiffOperation>> {
+  private stream: ReadableStream<DiffOperation>
+  private controller: ReadableStreamDefaultController<DiffOperation> | null = null
 
-export function diffToTextStream(
+  constructor() {
+    super()
+    this.stream = new ReadableStream({
+      start: (controller) => {
+        this.controller = controller
+      }
+    })
+  }
+
+  write(operation: DiffOperation) {
+    if (this.controller) {
+      this.controller.enqueue(operation)
+    }
+  }
+
+  close() {
+    if (this.controller) {
+      this.controller.close()
+    }
+
+    return this.stream
+  }
+}
+
+
+export function diffStreamToTextStream(
   diffStream: ReadableStream<DiffOperation>,
   options: {
     omit?: Array<"insert" | "delete" | "equal">
@@ -57,7 +86,7 @@ export function diffToTextStream(
   return diffStream.pipeThrough(transformStream)
 }
 
-export async function diffToString(
+export async function diffStreamToString(
   diffStream: ReadableStream<DiffOperation>,
   options: {
     omit?: Array<"insert" | "delete" | "equal">
@@ -69,13 +98,14 @@ export async function diffToString(
     equalTagClose?: string
   } = {}
 ) {
-  const stream = diffToTextStream(diffStream, options)
+  const stream = diffStreamToTextStream(diffStream, options)
+  const decoder = new TextDecoder()
   const reader = stream.getReader()
   let result = ""
   while (true) {
     const { done, value } = await reader.read()
     if (done) break
-    result += value
+    result += decoder.decode(value, { stream: true })
   }
   return result
 }

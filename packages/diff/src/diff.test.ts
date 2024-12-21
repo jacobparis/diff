@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest"
 import { tokenize } from "./tokenize.js"
 import { diffTokens } from "./diff.js"
-import { diffToString } from "./stream.js"
+import { diffArrayToString } from "./array.js"
+import { diffStreamToString, ReadableStreamWriter } from "./stream.js"
 
 const changeQuotes = {
   a: "import * as React from 'react'",
@@ -43,7 +44,7 @@ describe("Reconstruct with Removals Omitted", () => {
       }),
     })
 
-    const result = await diffToString(diff)
+    const result = diffArrayToString(diff)
     expect(result).toBe(bCode)
   })
 
@@ -62,7 +63,7 @@ describe("Reconstruct with Removals Omitted", () => {
       }),
     })
 
-    const result = await diffToString(diff, { omit: ["delete"] })
+    const result = diffArrayToString(diff, { omit: ["delete"] })
     expect(result).toBe(bCode)
   })
 
@@ -81,7 +82,7 @@ describe("Reconstruct with Removals Omitted", () => {
       }),
     })
 
-    const result = await diffToString(diff, { omit: ["delete"] })
+    const result = diffArrayToString(diff, { omit: ["delete"] })
     expect(result).toBe(bCode)
   })
 
@@ -100,11 +101,11 @@ describe("Reconstruct with Removals Omitted", () => {
       }),
     })
 
-    const result = await diffToString(diff, { omit: ["delete"] })
+    const result = diffArrayToString(diff, { omit: ["delete"] })
     expect(result).toBe(bCode)
   })
 
-  it("with deletions omitted, should return bCode", async () => {
+  it("with deletions omitted, should return bCode in array", async () => {
     const aCode = input.a
     const bCode = input.b
 
@@ -119,7 +120,31 @@ describe("Reconstruct with Removals Omitted", () => {
       }),
     })
 
-    const result = await diffToString(diff, {
+    const result = diffArrayToString(diff, {
+      omit: ["delete"],
+      insertTagOpen: "",
+      insertTagClose: "",
+    })
+    expect(result).toBe(bCode)
+  })
+
+  it("with deletions omitted, should return bCode in stream", async () => {
+    const aCode = input.a
+    const bCode = input.b
+
+    const diff = diffTokens({
+      a: tokenize({
+        content: aCode,
+        language: "typescript",
+      }),
+      b: tokenize({
+        content: bCode,
+        language: "typescript",
+      }),
+      writer: new ReadableStreamWriter(),
+    })
+
+    const result = await diffStreamToString(diff, {
       omit: ["delete"],
       insertTagOpen: "",
       insertTagClose: "",
