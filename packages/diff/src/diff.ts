@@ -1,12 +1,16 @@
+import { ArrayWriter } from "./array.js";
+import { Writer } from "./writer.js";
+
 export type DiffToken = { value: string; start: number; end: number }
 export type DiffOperation =
   | { type: "equal"; tokens: DiffToken[] }
   | { type: "insert"; tokens: DiffToken[] }
   | { type: "delete"; tokens: DiffToken[] }
 
-export function diffTokens({
+export function diffTokens<TWriter extends Writer<unknown> = ArrayWriter>({
   a,
   b,
+  writer,
 }: {
   a: {
     tokens: DiffToken[]
@@ -18,7 +22,12 @@ export function diffTokens({
     indentType: string
     indentAmount: number
   }
-}) {
+  writer?: TWriter
+}): ReturnType<TWriter['close']> {
+  if (!writer) {
+    // set default here so it doesn't instantiate every time the function is parsed
+    writer = new ArrayWriter() as unknown as TWriter
+  }
   // TODO: move skipTokens and normalizeToken strategies to a separate file
   // so they can be chosen by language
   const skipTokens = [";", ","]
@@ -56,94 +65,93 @@ export function diffTokens({
   let i = 0
   let j = 0
 
-  const stream = new ReadableStream({
-    async start(controller) {
-      let whileLimit = 50000
-      let operation = { type: "equal", tokens: [] as Array<DiffToken> }
-      while (
-        (i < a.tokens.length || j < b.tokens.length) &&
-        whileLimit-- >= 0
-      ) {
-        if (i < a.tokens.length && skipTokens.includes(a.tokens[i].value)) {
-          // if skipped token is in A, skip it
-          i++
-          continue
-        }
-        if (j < b.tokens.length && skipTokens.includes(b.tokens[j].value)) {
-          // if skipped token is in B, consider it equal
-          if (operation.type !== "equal") {
-            controller.enqueue(operation)
-            operation = { type: "equal", tokens: [] }
-          }
-          operation.tokens.push(b.tokens[j])
-          j++
-          continue
-        }
-        if (
-          i < a.tokens.length &&
-          j < b.tokens.length &&
-          (normalizeToken(a.tokens[i].value) ===
-            normalizeToken(b.tokens[j].value) ||
-            (isWhitespaceOnlyChange(a.tokens[i].value) &&
-              isWhitespaceOnlyChange(b.tokens[j].value)))
-        ) {
-          // Match found in LCS or semantically similar
-          if (operation.type !== "equal") {
-            controller.enqueue(operation)
-            operation = { type: "equal", tokens: [] }
-          }
-
-          // Default to B
-          operation.tokens.push(b.tokens[j])
-          i++
-          j++
-          continue
-        }
-
-        if (
-          j < b.tokens.length &&
-          (i >= a.tokens.length || lcsMatrix[i][j + 1] >= lcsMatrix[i + 1][j])
-        ) {
-          // Insert operation (token in B but not A)
-          if (operation.type !== "insert") {
-            controller.enqueue(operation)
-            operation = { type: "insert", tokens: [] }
-          }
-
-          // if (!isWhitespaceOnlyChange(tokensB[j - 1].value)) {
-          operation.tokens.push(b.tokens[j])
-          // }
-
-          j++
-          continue
-        }
-
-        // Delete operation (token in A but not B)
-        if (operation.type !== "delete") {
-          controller.enqueue(operation)
-          operation = { type: "delete", tokens: [] }
-        }
-
-        const token = a.tokens[i]
-        token.value = token.value.replaceAll(
-          a.indentType.repeat(a.indentAmount),
-          b.indentType.repeat(b.indentAmount)
-        )
-        operation.tokens.push(token)
-
-        i++
+  let whileLimit = 50000
+  let operation: DiffOperation = { type: "equal", tokens: []  }
+  while (
+    (i < a.tokens.length || j < b.tokens.length) &&
+    whileLimit-- >= 0
+  ) {
+    if (i < a.tokens.length && skipTokens.includes(a.tokens[i].value)) {
+      // if skipped token is in A, skip it
+      i++
+      continue
+    }
+    if (j < b.tokens.length && skipTokens.includes(b.tokens[j].value)) {
+      // if skipped token is in B, consider it equal
+      if (operation.type !== "equal") {
+        writer.write(operation)
+        operation = { type: "equal", tokens: [] }
+      }
+      operation.tokens.push(b.tokens[j])
+      j++
+      continue
+    }
+    if (
+      i < a.tokens.length &&
+      j < b.tokens.length &&
+      (normalizeToken(a.tokens[i].value) ===
+        normalizeToken(b.tokens[j].value) ||
+        (isWhitespaceOnlyChange(a.tokens[i].value) &&
+          isWhitespaceOnlyChange(b.tokens[j].value)))
+    ) {
+      // Match found in LCS or semantically similar
+      if (operation.type !== "equal") {
+        writer.write(operation)
+        operation = { type: "equal", tokens: [] }
       }
 
-      if (whileLimit <= 0) {
-        throw new Error("while loop timeout")
+      // Default to B
+      operation.tokens.push(b.tokens[j])
+      i++
+      j++
+      continue
+    }
+
+    if (
+      j < b.tokens.length &&
+      (i >= a.tokens.length || lcsMatrix[i][j + 1] >= lcsMatrix[i + 1][j])
+    ) {
+      // Insert operation (token in B but not A)
+      if (operation.type !== "insert") {
+        writer.write(operation)
+        operation = { type: "insert", tokens: [] }
       }
 
-      controller.close()
-    },
-  })
+      // if (!isWhitespaceOnlyChange(tokensB[j - 1].value)) {
+      operation.tokens.push(b.tokens[j])
+      // }
 
-  return stream
+      j++
+      continue
+    }
+
+    // Delete operation (token in A but not B)
+    if (operation.type !== "delete") {
+      writer.write(operation)
+      operation = { type: "delete", tokens: [] }
+    }
+
+    const token = a.tokens[i]
+    token.value = token.value.replaceAll(
+      a.indentType.repeat(a.indentAmount),
+      b.indentType.repeat(b.indentAmount)
+    )
+    operation.tokens.push(token)
+
+    i++
+  }
+
+  if (operation.tokens.length > 0) {
+    writer.write(operation)
+  }
+
+  if (whileLimit <= 0) {
+    throw new Error("while loop timeout")
+  }
+
+  return writer.close() as ReturnType<TWriter['close']>
 }
+
 
 // Helper function to compute the LCS matrix backwards
 function computeLCSMatrix(

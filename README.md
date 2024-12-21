@@ -13,16 +13,59 @@ npm install @pkgless/diff
 ```
 
 ```ts
-import { diffTokens, tokenize, diffToTextStream } from '@pkgless/diff'
+import {
+  // convert code to tokens
+  tokenize,
+
+  // compare two sets of tokens
+  diffTokens,
+  
+  // gets passed to diffTokens, makes it output Array<DiffOperation>
+  ArrayWriter,
+  
+  // gets passed to diffTokens, makes it output ReadableStream<DiffOperation>
+  ReadableStreamWriter,
+  
+  // convert ReadableStream<DiffOperation> to ReadableStream<string>
+  diffStreamToTextStream,
+  
+  // convert ReadableStream<DiffOperation> to Promise<string>
+  diffStreamToString,
+  
+  // convert Array<DiffOperation> to string
+  diffArrayToString,
+} from '@pkgless/diff'
 ```
 ## Features
 
 - **Formatting Tolerance**: Ignores indents, semicolons, and trailing commas.
 - **Word-Level Diff**: Breaks long strings into words for detailed diffs.
 
+### synchronous
+
+To get a diff synchronously, you can use the ArrayWriter which makes diffTokens return an array of DiffOperations. 
+
+Then print it with `diffArrayToString`.
+
+```ts
+const diff = diffTokens({
+  a: tokenize({
+    content: a,
+    language,
+  }),
+  b: tokenize({
+    content: b,
+    language,
+  }),
+  writer: new ArrayWriter(), // this is the default writer, so feel free to omit
+})
+
+const result = diffArrayToString(diff)
+```
+
 ### streaming text
 
-This API is streaming friendly. If you don't want to stream, you can use `await diffToString(stream)` to buffer the whole diff into a string. 
+This API is streaming friendly. If you don't want to stream the final output, you can use `await diffStreamToString(stream)` to buffer the whole diff into a string. 
 
 ```ts
 app.get('/diff', async (c) => {
@@ -37,9 +80,10 @@ app.get('/diff', async (c) => {
       content: b,
       language,
     }),
+    writer: new ReadableStreamWriter(),
   })
 
-  const stream = diffToTextStream(diffStream)
+  const stream = diffStreamToTextStream(diffStream)
   
   return new Response(stream, {
     headers: {
@@ -64,8 +108,9 @@ app.get('/diff.html', async (c) => {
       content: b,
       language,
     }),
+    writer: new ReadableStreamWriter(),
   })
-  const stream = diffToTextStream(diffStream, {
+  const stream = diffStreamToTextStream(diffStream, {
     insertTagOpen: "<ins>",
     insertTagClose: "</ins>",
     deleteTagOpen: "<del>",
