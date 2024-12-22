@@ -4,22 +4,22 @@ import { DiffToken } from "./diff.js"
 import { IndentController } from "./indents.js"
 
 const splitTokens = (token: DiffToken): DiffToken[] => {
-  if (!token.value.includes('\n')) return [token];
-  
-  const lines = token.value.split('\n');
-  let currentPos = token.start;
-  
+  if (!token.value.includes("\n")) return [token]
+
+  const lines = token.value.split("\n")
+  let currentPos = token.start
+
   return lines.map((line: string, i: number) => {
-    const tokenLength = line.length + (i < lines.length - 1 ? 1 : 0); // +1 for \n except last line
+    const tokenLength = line.length + (i < lines.length - 1 ? 1 : 0) // +1 for \n except last line
     const newToken = {
-      value: line + (i < lines.length - 1 ? '\n' : ''),
+      value: line + (i < lines.length - 1 ? "\n" : ""),
       start: currentPos,
-      end: currentPos + tokenLength
-    };
-    currentPos += tokenLength;
-    return newToken;
-  });
-};
+      end: currentPos + tokenLength,
+    }
+    currentPos += tokenLength
+    return newToken
+  })
+}
 
 export function tokenizeTypeScript(sourceCode: string) {
   const tokens: Array<DiffToken> = []

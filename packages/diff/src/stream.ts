@@ -1,15 +1,18 @@
 import { DiffOperation } from "./diff.js"
 import { Writer } from "./writer.js"
-export class ReadableStreamWriter extends Writer<ReadableStream<DiffOperation>> {
+export class ReadableStreamWriter extends Writer<
+  ReadableStream<DiffOperation>
+> {
   private stream: ReadableStream<DiffOperation>
-  private controller: ReadableStreamDefaultController<DiffOperation> | null = null
+  private controller: ReadableStreamDefaultController<DiffOperation> | null =
+    null
 
   constructor() {
     super()
     this.stream = new ReadableStream({
       start: (controller) => {
         this.controller = controller
-      }
+      },
     })
   }
 
@@ -27,7 +30,6 @@ export class ReadableStreamWriter extends Writer<ReadableStream<DiffOperation>> 
     return this.stream
   }
 }
-
 
 export function diffStreamToTextStream(
   diffStream: ReadableStream<DiffOperation>,
@@ -53,7 +55,7 @@ export function diffStreamToTextStream(
   const transformStream = new TransformStream<DiffOperation, Uint8Array>({
     transform(change, controller) {
       let chunk = ""
-      if ((change.type === "insert" || change.type === "insert-whitespace") && !omit.includes("insert")) {
+      if (change.type === "insert" && !omit.includes("insert")) {
         chunk += insertTagOpen
         for (const token of change.tokens) {
           chunk += token.value
@@ -61,7 +63,7 @@ export function diffStreamToTextStream(
         chunk += insertTagClose
       }
 
-      if ((change.type === "delete" || change.type === "delete-whitespace") && !omit.includes("delete")) {
+      if (change.type === "delete" && !omit.includes("delete")) {
         chunk += deleteTagOpen
         for (const token of change.tokens) {
           chunk += token.value
@@ -69,7 +71,7 @@ export function diffStreamToTextStream(
         chunk += deleteTagClose
       }
 
-      if ((change.type === "equal" || change.type === "equal-whitespace") && !omit.includes("equal")) {
+      if (change.type === "equal" && !omit.includes("equal")) {
         chunk += equalTagOpen
         for (const token of change.tokens) {
           chunk += token.value

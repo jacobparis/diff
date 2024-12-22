@@ -1,12 +1,14 @@
 {
   "name": "@pkgless/diff",
   "type": "module",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "A diff library",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "exports": {
     "./package.json": "./package.json",
     ".": {
@@ -38,5 +40,8 @@
   "dependencies": {
     "acorn": "^8.14.0",
     "typescript": "^5.7.2"
+  },
+  "prettier": {
+    "semi": false
   }
 }

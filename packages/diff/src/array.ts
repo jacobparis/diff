@@ -23,7 +23,8 @@ export function diffArrayToString(
     deleteTagClose?: string
     equalTagOpen?: string
     equalTagClose?: string
-} = {}) {
+  } = {}
+) {
   let omit = options.omit ?? []
   let insertTagOpen = options.insertTagOpen ?? "[+ "
   let insertTagClose = options.insertTagClose ?? " +]"
@@ -34,7 +35,7 @@ export function diffArrayToString(
 
   let result = ""
   for (const change of diffArray) {
-    if ((change.type === "insert" || change.type === "insert-whitespace") && !omit.includes("insert")) {
+    if (change.type === "insert" && !omit.includes("insert")) {
       result += insertTagOpen
       for (const token of change.tokens) {
         result += token.value
@@ -42,7 +43,7 @@ export function diffArrayToString(
       result += insertTagClose
     }
 
-    if ((change.type === "delete" || change.type === "delete-whitespace") && !omit.includes("delete")) {
+    if (change.type === "delete" && !omit.includes("delete")) {
       result += deleteTagOpen
       for (const token of change.tokens) {
         result += token.value
@@ -50,7 +51,7 @@ export function diffArrayToString(
       result += deleteTagClose
     }
 
-    if ((change.type === "equal" || change.type === "equal-whitespace") && !omit.includes("equal")) {
+    if (change.type === "equal" && !omit.includes("equal")) {
       result += equalTagOpen
       for (const token of change.tokens) {
         result += token.value
