@@ -3,6 +3,24 @@ import { tokenizeSubstrings } from "./tokenize-substrings.js"
 import { DiffToken } from "./diff.js"
 import { IndentController } from "./indents.js"
 
+const splitTokens = (token: DiffToken): DiffToken[] => {
+  if (!token.value.includes('\n')) return [token];
+  
+  const lines = token.value.split('\n');
+  let currentPos = token.start;
+  
+  return lines.map((line: string, i: number) => {
+    const tokenLength = line.length + (i < lines.length - 1 ? 1 : 0); // +1 for \n except last line
+    const newToken = {
+      value: line + (i < lines.length - 1 ? '\n' : ''),
+      start: currentPos,
+      end: currentPos + tokenLength
+    };
+    currentPos += tokenLength;
+    return newToken;
+  });
+};
+
 export function tokenizeTypeScript(sourceCode: string) {
   const tokens: Array<DiffToken> = []
   const scanner = ts.createScanner(
@@ -29,7 +47,9 @@ export function tokenizeTypeScript(sourceCode: string) {
       if (token === ts.SyntaxKind.WhitespaceTrivia) {
         indentController.recordIndent(value)
       }
-      tokens.push({ value, start, end })
+      // Split any tokens that contain newlines
+      const splitResult = splitTokens({ value, start, end })
+      tokens.push(...splitResult)
     }
 
     token = scanner.scan()

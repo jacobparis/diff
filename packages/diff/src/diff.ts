@@ -55,6 +55,9 @@ export function diffTokens<TWriter extends Writer<unknown> = ArrayWriter>({
     b.tokens.map((t) => ({ ...t, value: normalizeToken(t.value) }))
   )
 
+  // The LCS matrix is computed backwards (bottom-right to top-left)
+  // At each position [i,j], the value represents the length of the longest common subsequence
+  // that can be formed using tokens from position i onwards in A and j onwards in B
   let i = 0
   let j = 0
   let whileLimit = 50000
@@ -83,8 +86,11 @@ export function diffTokens<TWriter extends Writer<unknown> = ArrayWriter>({
     const aValue = aToken ? normalizeToken(aToken.value) : null;
     const bValue = bToken ? normalizeToken(bToken.value) : null;
 
-    // unsure if this is correct, in theory for equality should be lcsMatrix[i][j] > lcsMatrix[i + 1][j + 1]
-    // but that seems to match everything and not just the longest common subsequence
+
+    // When we find matching tokens, we need to verify this match is part of a longer subsequence
+    // We compare with the value below (i+1,j) because:
+    // 1. If this match is part of the LCS, the value at (i,j) should be greater than (i+1,j)
+    // 2. Comparing with (i+1,j+1) would match any equal tokens, even if they're not part of the LCS
     if (aValue === bValue && lcsMatrix[i][j] > lcsMatrix[i + 1][j]) {
       if (operation.type !== "equal") {
         writer.write(operation);
