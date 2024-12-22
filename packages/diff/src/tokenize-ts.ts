@@ -39,17 +39,16 @@ export function tokenizeTypeScript(sourceCode: string) {
     const end = scanner.getTokenEnd()
     let value = sourceCode.slice(start, end)
 
-    if (token === ts.SyntaxKind.StringLiteral && value.includes(" ")) {
+    if (token === ts.SyntaxKind.WhitespaceTrivia) {
+      indentController.recordIndent(value)
+    }
+
+    if (value.includes(" ")) {
       // split string literals containing spaces into separate tokens
       const subtokens = tokenizeSubstrings({ value, start })
       tokens.push(...subtokens)
     } else {
-      if (token === ts.SyntaxKind.WhitespaceTrivia) {
-        indentController.recordIndent(value)
-      }
-      // Split any tokens that contain newlines
-      const splitResult = splitTokens({ value, start, end })
-      tokens.push(...splitResult)
+      tokens.push({ value, start, end })
     }
 
     token = scanner.scan()

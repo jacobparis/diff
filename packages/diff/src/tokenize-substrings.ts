@@ -24,7 +24,7 @@ export function tokenizeSubstrings({
         subStart = i
       }
       state = "isQuote"
-    } else if (char === " ") {
+    } else if (char.match(/^\s$/)) {
       if (state !== "isSpace") {
         tokens.push({
           value: buffer.join(""),
