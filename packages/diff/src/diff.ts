@@ -1,15 +1,11 @@
-import { ArrayWriter } from "./array.js";
-import { Writer } from "./writer.js";
+import { ArrayWriter } from "./array.js"
+import { Writer } from "./writer.js"
 
 export type DiffToken = { value: string; start: number; end: number }
 export type DiffOperation =
   | { type: "equal"; tokens: DiffToken[] }
   | { type: "insert"; tokens: DiffToken[] }
   | { type: "delete"; tokens: DiffToken[] }
-  // keep whitespace separate so we can isolate word changes
-  | { type: "equal-whitespace"; tokens: DiffToken[] }
-  | { type: "insert-whitespace"; tokens: DiffToken[] }
-  | { type: "delete-whitespace"; tokens: DiffToken[] }
 
 export function diffTokens<TWriter extends Writer<unknown> = ArrayWriter>({
   a,
@@ -27,46 +23,29 @@ export function diffTokens<TWriter extends Writer<unknown> = ArrayWriter>({
     indentAmount: number
   }
   writer?: TWriter
-}): ReturnType<TWriter['close']> {
+}): ReturnType<TWriter["close"]> {
   if (!writer) {
     writer = new ArrayWriter() as unknown as TWriter
   }
 
-  const skipTokens = [";", ","]
-  const normalizeToken = (token: string) => {
-    if (
-      (token.startsWith('"') && token.endsWith('"')) ||
-      (token.startsWith("'") && token.endsWith("'"))
-    ) {
-      return token.slice(1, -1)
-    }
-    return token
-  }
-  const isWhitespace = (token: string) => /^\s*$/.test(token);
+  const hashCache = new Map<string, string>()
 
-  const lcsMatrix = computeLCSMatrix(
-    a.tokens.map((t) => ({
-      ...t,
-      value: normalizeToken(t.value).replaceAll(
-        a.indentType.repeat(a.indentAmount),
-        b.indentType.repeat(b.indentAmount)
-      ),
-    })),
-    b.tokens.map((t) => ({ ...t, value: normalizeToken(t.value) }))
-  )
+  const skipTokens = [";", ","]
+
+  const lcsMatrix = computeLCSMatrix(a.tokens, b.tokens)
 
   // The LCS matrix is computed backwards (bottom-right to top-left)
   // At each position [i,j], the value represents the length of the longest common subsequence
   // that can be formed using tokens from position i onwards in A and j onwards in B
   let i = 0
   let j = 0
-  let whileLimit = 50000
-  let operation: DiffOperation = { type: "equal", tokens: []  }
-
-  while (
-    (i < a.tokens.length || j < b.tokens.length) &&
-    whileLimit-- >= 0
-  ) {
+  let whileLimit =
+    Math.max(
+      a.tokens.length + b.tokens.length,
+      a.tokens.length * b.tokens.length
+    ) * 2 // margin for error
+  let operation: DiffOperation = { type: "equal", tokens: [] }
+  while ((i < a.tokens.length || j < b.tokens.length) && whileLimit-- >= 0) {
     if (i < a.tokens.length && skipTokens.includes(a.tokens[i].value)) {
       i++
       continue
@@ -81,11 +60,54 @@ export function diffTokens<TWriter extends Writer<unknown> = ArrayWriter>({
       continue
     }
 
-    const aToken = i < a.tokens.length ? a.tokens[i] : null;
-    const bToken = j < b.tokens.length ? b.tokens[j] : null;
-    const aValue = aToken ? normalizeToken(aToken.value) : null;
-    const bValue = bToken ? normalizeToken(bToken.value) : null;
+    const aToken =
+      i < a.tokens.length
+        ? {
+            ...a.tokens[i],
+            value: a.tokens[i].value.replaceAll(
+              a.indentType.repeat(a.indentAmount),
+              b.indentType.repeat(b.indentAmount)
+            ),
+          }
+        : null
+    const bToken = j < b.tokens.length ? b.tokens[j] : null
 
+    // Handle cases where either token is null (end of sequence)
+    if (!aToken) {
+      // Only B tokens remain, mark as insertions
+      if (operation.type !== "insert") {
+        writer.write(operation)
+        operation = { type: "insert", tokens: [] }
+      }
+
+      if (bToken) {
+        console.log("last chance insert", bToken.value)
+        operation.tokens.push(bToken)
+        j++
+      }
+      continue
+    }
+
+    if (!bToken) {
+      // Only A tokens remain, mark as deletions
+      if (operation.type !== "delete") {
+        writer.write(operation)
+        operation = { type: "delete", tokens: [] }
+      }
+
+      if (aToken) {
+        console.log("last chance delete", j, aToken.value)
+        operation.tokens.push(aToken)
+        i++
+      }
+      continue
+    }
+
+    // hash aValue and bValue so we can compare them
+    // but then use aToken and bToken for the actual diff
+    // because we need to preserve the original token
+    const aValue = hashToken(aToken.value)
+    const bValue = hashToken(bToken.value)
 
     // When we find matching tokens, we need to verify this match is part of a longer subsequence
     // We compare with the value below (i+1,j) because:
@@ -93,95 +115,121 @@ export function diffTokens<TWriter extends Writer<unknown> = ArrayWriter>({
     // 2. Comparing with (i+1,j+1) would match any equal tokens, even if they're not part of the LCS
     if (aValue === bValue && lcsMatrix[i][j] > lcsMatrix[i + 1][j]) {
       if (operation.type !== "equal") {
-        writer.write(operation);
-        operation = { type: "equal", tokens: [] };
+        writer.write(operation)
+        operation = { type: "equal", tokens: [] }
       }
-      operation.tokens.push(bToken!);
-      i++;
-      j++;
-      continue;
+      operation.tokens.push(bToken)
+      i++
+      j++
+      continue
     }
 
-    if (isWhitespace(aValue || '') && isWhitespace(bValue || '')) {
-      if (operation.type !== "equal-whitespace") {
-        writer.write(operation);
-        operation = { type: "equal-whitespace", tokens: [] };
+    if (
+      bToken &&
+      (i >= a.tokens.length || lcsMatrix[i][j + 1] >= lcsMatrix[i + 1][j])
+    ) {
+      if (operation.type !== "insert") {
+        writer.write(operation)
+        operation = { type: "insert", tokens: [] }
       }
-      operation.tokens.push(bToken!);
-      i++;
-      j++;
-      continue;
-    }
-
-    if (bToken && (i >= a.tokens.length || lcsMatrix[i][j + 1] >= lcsMatrix[i + 1][j])) {
-      if (isWhitespace(bValue || '')) {
-        if (operation.type !== "insert-whitespace") {
-          writer.write(operation);
-          operation = { type: "insert-whitespace", tokens: [] };
-        }
-      } else {
-        if (operation.type !== "insert") {
-          writer.write(operation);
-          operation = { type: "insert", tokens: [] };
-        }
-      }
-      operation.tokens.push(bToken);
-      j++;
-      continue;
+      operation.tokens.push(bToken)
+      j++
+      continue
     }
 
     if (aToken) {
-      if (isWhitespace(aValue || '')) {
-        if (operation.type !== "delete-whitespace") {
-          writer.write(operation);
-          operation = { type: "delete-whitespace", tokens: [] };
-        }
-      } else {
-        if (operation.type !== "delete") {
-          writer.write(operation);
-          operation = { type: "delete", tokens: [] };
-        }
+      if (operation.type !== "delete") {
+        writer.write(operation)
+        operation = { type: "delete", tokens: [] }
       }
-      const token = { ...aToken, value: aValue!.replaceAll(
-        a.indentType.repeat(a.indentAmount),
-        b.indentType.repeat(b.indentAmount)
-      )};
-      operation.tokens.push(token);
-      i++;
+      operation.tokens.push(aToken)
+      i++
     }
   }
 
   if (operation.tokens.length > 0) {
     writer.write(operation)
+    operation = { type: "equal", tokens: [] }
   }
 
   if (whileLimit <= 0) {
     throw new Error("while loop timeout")
   }
 
-  return writer.close() as ReturnType<TWriter['close']>
-}
+  return writer.close() as ReturnType<TWriter["close"]>
 
+  // Helper function to compute the LCS matrix backwards
+  function computeLCSMatrix(
+    tokensA: DiffToken[],
+    tokensB: DiffToken[]
+  ): number[][] {
+    const lcsMatrix: Array<Array<number>> = Array(tokensA.length + 1)
+      .fill(null)
+      .map(() => Array(tokensB.length + 1).fill(0))
 
-// Helper function to compute the LCS matrix backwards
-function computeLCSMatrix(
-  tokensA: DiffToken[],
-  tokensB: DiffToken[]
-): number[][] {
-  const lcsMatrix: Array<Array<number>> = Array(tokensA.length + 1)
-    .fill(null)
-    .map(() => Array(tokensB.length + 1).fill(0));
+    for (let i = tokensA.length - 1; i >= 0; i--) {
+      for (let j = tokensB.length - 1; j >= 0; j--) {
+        const aValue = hashToken(tokensA[i].value)
+        const bValue = hashToken(tokensB[j].value)
 
-  for (let i = tokensA.length - 1; i >= 0; i--) {
-    for (let j = tokensB.length - 1; j >= 0; j--) {
-      if (tokensA[i].value === tokensB[j].value && !/^\s+$/.test(tokensA[i].value)) {
-        lcsMatrix[i][j] = lcsMatrix[i + 1][j + 1] + 1;
-      } else {
-        lcsMatrix[i][j] = Math.max(lcsMatrix[i + 1][j], lcsMatrix[i][j + 1]);
+        if (aValue === bValue) {
+          // // evaluate
+          // if (aValue.match(/^\s+$/)) {
+          //   const prevAValue = hashToken(tokensA[i + 1].value)
+          //   const prevBValue = hashToken(tokensB[j + 1].value)
+
+          //   if (prevAValue !== prevBValue) {
+          //     lcsMatrix[i][j] = Math.max(lcsMatrix[i + 1][j], lcsMatrix[i][j + 1]);
+          //     continue
+          //   }
+          // }
+
+          lcsMatrix[i][j] = lcsMatrix[i + 1][j + 1] + 1
+        } else {
+          lcsMatrix[i][j] = Math.max(lcsMatrix[i + 1][j], lcsMatrix[i][j + 1])
+        }
       }
     }
+
+    return lcsMatrix
   }
 
+  function hashToken(token: string) {
+    if (hashCache.has(token)) {
+      return hashCache.get(token)!
+    }
 
-  return lcsMatrix;
+    const result = []
+    let lastWasSpace = false
+
+    for (let i = 0; i < token.length; i++) {
+      const c = token[i]
+
+      // Check for whitespace
+      if (
+        c === " " ||
+        c === "\t" ||
+        c === "\n" ||
+        c === "\r" ||
+        c === "\f" ||
+        c === "\v"
+      ) {
+        if (!lastWasSpace) {
+          result.push(" ")
+          lastWasSpace = true
+        }
+      } else if (c === '"' || c === "'" || c === "`") {
+        // Normalize quotes
+        result.push('"')
+        lastWasSpace = false
+      } else {
+        result.push(c)
+        lastWasSpace = false
+      }
+    }
+
+    const hash = result.join("")
+    hashCache.set(token, hash)
+    return hash
+  }
 }

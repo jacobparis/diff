@@ -3,12 +3,8 @@ import { tokenize } from "./tokenize.js"
 import { diffTokens } from "./diff.js"
 import { diffArrayToString } from "./array.js"
 import { diffStreamToString, ReadableStreamWriter } from "./stream.js"
+import files from "./files.js"
 
-const changeQuotes = {
-  a: "import * as React from 'react'",
-  b: 'import * as React from "react"',
-  language: "typescript",
-}
 
 const removeSemi = {
   a: "import * as React from 'react';",
@@ -49,6 +45,11 @@ describe("Reconstruct with Removals Omitted", () => {
   })
 
   it("with deletions omitted, should return bCode", async () => {
+    const changeQuotes = {
+      a: "import * as React from 'react'",
+      b: 'import * as React from "react"',
+      language: "typescript",
+    }
     const aCode = changeQuotes.a
     const bCode = changeQuotes.b
 
@@ -214,8 +215,8 @@ describe("Additional Diff Tests", () => {
     })
 
     const result = diffArrayToString(diff)
-    expect(result).toContain("[- // old comment")
-    expect(result).toContain("[+ // new comment")
+    expect(result).toContain("[- old -]")
+    expect(result).toContain("[+ new +]")
   })
 
   it("should handle multiple changes in the same line", async () => {
@@ -305,7 +306,7 @@ describe("Tailwind Class Changes", () => {
 
     const result = diffArrayToString(diff)
     // Should show mt-2 as an addition without marking the whole className
-    expect(result).toContain('[+ mt-2')
+    expect(result).toContain('[+  mt-2')
     expect(result).not.toContain('[- px-4')
     expect(result).not.toContain('[- py-2')
   })
@@ -327,7 +328,7 @@ describe("Tailwind Class Changes", () => {
 
     const result = diffArrayToString(diff)
     // Should show mt-2 as a deletion without marking the whole className
-    expect(result).toContain('[- mt-2')
+    expect(result).toContain('[-  mt-2')
     expect(result).not.toContain('[+ px-4')
     expect(result).not.toContain('[+ py-2')
   })
@@ -376,7 +377,10 @@ describe("Line Removal Test", () => {
 
     const result = diffArrayToString(diff)
     // Ensure the whole line is marked as removed
-    expect(result).toContain('[- const -][-   -][- SIDEBAR_COOKIE_MAX_AGE=3600')
+    expect(result).toMatchInlineSnapshot(`
+      "[- const SIDEBAR_COOKIE_MAX_AGE=3600
+       -]const SIDEBAR_WIDTH = "16rem""
+    `)
   })
 })
 
@@ -427,5 +431,29 @@ const toggleSidebar = React.useCallback(() => {`)
 
     const result = diffArrayToString(diff, { omit: ["insert", "delete"] })
     expect(result).toContain('export {')
+  })
+})
+
+describe("preserves quotes", () => {
+  it("should preserve quotes", async () => {
+    const { aContent, bContent } = {
+      "aContent": "\"use client\"\n\nimport * as React from \"react\"",
+      "bContent": "import { PanelLeft } from \"lucide-react\"\nimport * as React from \"react\""
+  }
+
+    const diff = diffTokens({
+      a: tokenize({
+        content: aContent,
+        language: "typescript",
+      }),
+      b: tokenize({
+        content: bContent,
+        language: "typescript",
+      }),
+    })
+
+    const result = diffArrayToString(diff, { omit: ["equal", "insert"], deleteTagClose: "", deleteTagOpen: "",  }).trim()
+    // the space is marked equal, so won't show up in this test where we omit equal
+    expect(result).toMatchInlineSnapshot(`""useclient""`)
   })
 })
