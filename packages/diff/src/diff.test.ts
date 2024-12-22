@@ -151,4 +151,232 @@ describe("Reconstruct with Removals Omitted", () => {
     })
     expect(result).toBe(bCode)
   })
+
+  it("should return bCode", async () => {
+    const diff = diffTokens({
+      a: tokenize({
+        content: files.aContent,
+        language: "typescript",
+      }),
+      b: tokenize({
+        content: files.bContent,
+        language: "typescript",
+      }),
+    })
+
+    const result = diffArrayToString(diff, {
+      omit: ["delete"],
+      insertTagOpen: "",
+      insertTagClose: "",
+    })
+
+    expect(result).toBe(files.bContent)
+  })
+
+
+})
+
+describe("Additional Diff Tests", () => {
+  it("should handle whitespace changes", async () => {
+    const aCode = "function test() {\n  return true\n}"
+    const bCode = "function test(){\nreturn true\n}"
+
+    const diff = diffTokens({
+      a: tokenize({
+        content: aCode,
+        language: "typescript",
+      }),
+      b: tokenize({
+        content: bCode,
+        language: "typescript",
+      }),
+    })
+
+    const result = diffArrayToString(diff, { omit: ["delete", "insert"] })
+    // We just verify the functional code remains after omitting changes
+    expect(result).toContain("function test()")
+    expect(result).toContain("return true")
+  })
+
+  it("should handle comment changes appropriately", async () => {
+    const aCode = "// old comment\nconst x = 1;"
+    const bCode = "// new comment\nconst x = 1;"
+
+    const diff = diffTokens({
+      a: tokenize({
+        content: aCode,
+        language: "typescript",
+      }),
+      b: tokenize({
+        content: bCode,
+        language: "typescript",
+      }),
+    })
+
+    const result = diffArrayToString(diff)
+    expect(result).toContain("[- // old comment")
+    expect(result).toContain("[+ // new comment")
+  })
+
+  it("should handle multiple changes in the same line", async () => {
+    const aCode = "const x = 1, y = 2;"
+    const bCode = "let x = 2, y = 3;"
+
+    const diff = diffTokens({
+      a: tokenize({
+        content: aCode,
+        language: "typescript",
+      }),
+      b: tokenize({
+        content: bCode,
+        language: "typescript",
+      }),
+    })
+
+    const result = diffArrayToString(diff)
+    expect(result).toContain("[- const")
+    expect(result).toContain("[+ let")
+    expect(result).toContain("[- 1")
+    expect(result).toContain("[+ 2")
+    expect(result).toContain("[- 2")
+    expect(result).toContain("[+ 3")
+  })
+
+  it("should handle string content changes", async () => {
+    const aCode = `const str = "hello world";`
+    const bCode = `const str = 'hello earth';`
+
+    const diff = diffTokens({
+      a: tokenize({
+        content: aCode,
+        language: "typescript",
+      }),
+      b: tokenize({
+        content: bCode,
+        language: "typescript",
+      }),
+    })
+
+    const result = diffArrayToString(diff)
+    // Check that the word changes are marked
+    expect(result).toContain("[- world")
+    expect(result).toContain("[+ earth")
+  })
+
+  it("should efficiently handle large blocks of unchanged code", async () => {
+    const commonCode = "// Many lines of code\n".repeat(100)
+    const aCode = commonCode + "const x = 1;"
+    const bCode = commonCode + "const x = 2;"
+
+    const diff = diffTokens({
+      a: tokenize({
+        content: aCode,
+        language: "typescript",
+      }),
+      b: tokenize({
+        content: bCode,
+        language: "typescript",
+      }),
+    })
+
+    const result = diffArrayToString(diff)
+    expect(result).toContain("[- 1")
+    expect(result).toContain("[+ 2")
+    // The common code should be preserved without diff markers
+    expect(result.match(/\[\+|\[-/g)?.length).toBe(2)
+  })
+})
+
+describe("Tailwind Class Changes", () => {
+  it("should mark single class addition as a word change", async () => {
+    const aCode = '<div className="px-4 py-2"></div>'
+    const bCode = '<div className="px-4 py-2 mt-2"></div>'
+
+    const diff = diffTokens({
+      a: tokenize({
+        content: aCode,
+        language: "typescript",
+      }),
+      b: tokenize({
+        content: bCode,
+        language: "typescript",
+      }),
+    })
+
+    const result = diffArrayToString(diff)
+    // Should show mt-2 as an addition without marking the whole className
+    expect(result).toContain('[+ mt-2')
+    expect(result).not.toContain('[- px-4')
+    expect(result).not.toContain('[- py-2')
+  })
+
+  it("should mark single class removal as a word change", async () => {
+    const aCode = '<div className="px-4 py-2 mt-2"></div>'
+    const bCode = '<div className="px-4 py-2"></div>'
+
+    const diff = diffTokens({
+      a: tokenize({
+        content: aCode,
+        language: "typescript",
+      }),
+      b: tokenize({
+        content: bCode,
+        language: "typescript",
+      }),
+    })
+
+    const result = diffArrayToString(diff)
+    // Should show mt-2 as a deletion without marking the whole className
+    expect(result).toContain('[- mt-2')
+    expect(result).not.toContain('[+ px-4')
+    expect(result).not.toContain('[+ py-2')
+  })
+
+  it("should handle multiple class changes efficiently", async () => {
+    const aCode = '<div className="px-4 py-2 mt-2 text-sm"></div>'
+    const bCode = '<div className="px-4 py-2 mt-4 text-lg"></div>'
+
+    const diff = diffTokens({
+      a: tokenize({
+        content: aCode,
+        language: "typescript",
+      }),
+      b: tokenize({
+        content: bCode,
+        language: "typescript",
+      }),
+    })
+
+    const result = diffArrayToString(diff)
+    // Should show specific class changes without affecting unchanged classes
+    expect(result).toContain('[- mt-2')
+    expect(result).toContain('[+ mt-4')
+    expect(result).toContain('[- text-sm')
+    expect(result).toContain('[+ text-lg')
+    expect(result).not.toContain('[- px-4')
+    expect(result).not.toContain('[- py-2')
+  })
+})
+
+describe("Line Removal Test", () => {
+  it("should mark the whole line as removed", async () => {
+    const originalCode = `const SIDEBAR_COOKIE_MAX_AGE=3600\nconst SIDEBAR_WIDTH = "16rem"`
+    const modifiedCode = `const SIDEBAR_WIDTH = "16rem"`
+
+    const diff = diffTokens({
+      a: tokenize({
+        content: originalCode,
+        language: "typescript",
+      }),
+      b: tokenize({
+        content: modifiedCode,
+        language: "typescript",
+      }),
+    })
+
+    const result = diffArrayToString(diff)
+    // Ensure the whole line is marked as removed
+    expect(result).toContain('[- const -][-   -][- SIDEBAR_COOKIE_MAX_AGE=3600')
+  })
+})
 })

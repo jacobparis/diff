@@ -23,8 +23,9 @@
     }
   },
   "scripts": {
-    "test": "vitest",
+    "test": "vitest --run",
     "build": "tsup --config tsup.config.ts",
+    "dev": "tsup --watch --config tsup.config.ts",
     "prepublishOnly": "npm run build"
   },
   "author": "Jacob Paris <jacob@jacobparis.com>",

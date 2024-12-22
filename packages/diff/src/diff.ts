@@ -6,6 +6,10 @@ export type DiffOperation =
   | { type: "equal"; tokens: DiffToken[] }
   | { type: "insert"; tokens: DiffToken[] }
   | { type: "delete"; tokens: DiffToken[] }
+  // keep whitespace separate so we can isolate word changes
+  | { type: "equal-whitespace"; tokens: DiffToken[] }
+  | { type: "insert-whitespace"; tokens: DiffToken[] }
+  | { type: "delete-whitespace"; tokens: DiffToken[] }
 
 export function diffTokens<TWriter extends Writer<unknown> = ArrayWriter>({
   a,
@@ -25,14 +29,10 @@ export function diffTokens<TWriter extends Writer<unknown> = ArrayWriter>({
   writer?: TWriter
 }): ReturnType<TWriter['close']> {
   if (!writer) {
-    // set default here so it doesn't instantiate every time the function is parsed
     writer = new ArrayWriter() as unknown as TWriter
   }
-  // TODO: move skipTokens and normalizeToken strategies to a separate file
-  // so they can be chosen by language
-  const skipTokens = [";", ","]
 
-  // Helper function to normalize tokens by removing wrapping quotes
+  const skipTokens = [";", ","]
   const normalizeToken = (token: string) => {
     if (
       (token.startsWith('"') && token.endsWith('"')) ||
@@ -42,17 +42,11 @@ export function diffTokens<TWriter extends Writer<unknown> = ArrayWriter>({
     }
     return token
   }
-
-  // Helper function to check if two tokens differ only by whitespace
-  const isWhitespaceOnlyChange = (tokenA: string) => {
-    const matchWhitespaceOnly = /^\s*$/
-    return matchWhitespaceOnly.test(tokenA)
-  }
+  const isWhitespace = (token: string) => /^\s*$/.test(token);
 
   const lcsMatrix = computeLCSMatrix(
     a.tokens.map((t) => ({
       ...t,
-      // replace indents from A with indents from B
       value: normalizeToken(t.value).replaceAll(
         a.indentType.repeat(a.indentAmount),
         b.indentType.repeat(b.indentAmount)
@@ -61,23 +55,20 @@ export function diffTokens<TWriter extends Writer<unknown> = ArrayWriter>({
     b.tokens.map((t) => ({ ...t, value: normalizeToken(t.value) }))
   )
 
-  // Iterate forwards through the LCS matrix to generate the diff
   let i = 0
   let j = 0
-
   let whileLimit = 50000
   let operation: DiffOperation = { type: "equal", tokens: []  }
+
   while (
     (i < a.tokens.length || j < b.tokens.length) &&
     whileLimit-- >= 0
   ) {
     if (i < a.tokens.length && skipTokens.includes(a.tokens[i].value)) {
-      // if skipped token is in A, skip it
       i++
       continue
     }
     if (j < b.tokens.length && skipTokens.includes(b.tokens[j].value)) {
-      // if skipped token is in B, consider it equal
       if (operation.type !== "equal") {
         writer.write(operation)
         operation = { type: "equal", tokens: [] }
@@ -86,59 +77,72 @@ export function diffTokens<TWriter extends Writer<unknown> = ArrayWriter>({
       j++
       continue
     }
-    if (
-      i < a.tokens.length &&
-      j < b.tokens.length &&
-      (normalizeToken(a.tokens[i].value) ===
-        normalizeToken(b.tokens[j].value) ||
-        (isWhitespaceOnlyChange(a.tokens[i].value) &&
-          isWhitespaceOnlyChange(b.tokens[j].value)))
-    ) {
-      // Match found in LCS or semantically similar
+
+    const aToken = i < a.tokens.length ? a.tokens[i] : null;
+    const bToken = j < b.tokens.length ? b.tokens[j] : null;
+    const aValue = aToken ? normalizeToken(aToken.value) : null;
+    const bValue = bToken ? normalizeToken(bToken.value) : null;
+
+    // unsure if this is correct, in theory for equality should be lcsMatrix[i][j] > lcsMatrix[i + 1][j + 1]
+    // but that seems to match everything and not just the longest common subsequence
+    if (aValue === bValue && lcsMatrix[i][j] > lcsMatrix[i + 1][j]) {
       if (operation.type !== "equal") {
-        writer.write(operation)
-        operation = { type: "equal", tokens: [] }
+        writer.write(operation);
+        operation = { type: "equal", tokens: [] };
       }
-
-      // Default to B
-      operation.tokens.push(b.tokens[j])
-      i++
-      j++
-      continue
+      operation.tokens.push(bToken!);
+      i++;
+      j++;
+      continue;
     }
 
-    if (
-      j < b.tokens.length &&
-      (i >= a.tokens.length || lcsMatrix[i][j + 1] >= lcsMatrix[i + 1][j])
-    ) {
-      // Insert operation (token in B but not A)
-      if (operation.type !== "insert") {
-        writer.write(operation)
-        operation = { type: "insert", tokens: [] }
+    if (isWhitespace(aValue || '') && isWhitespace(bValue || '')) {
+      if (operation.type !== "equal-whitespace") {
+        writer.write(operation);
+        operation = { type: "equal-whitespace", tokens: [] };
       }
-
-      // if (!isWhitespaceOnlyChange(tokensB[j - 1].value)) {
-      operation.tokens.push(b.tokens[j])
-      // }
-
-      j++
-      continue
+      operation.tokens.push(bToken!);
+      i++;
+      j++;
+      continue;
     }
 
-    // Delete operation (token in A but not B)
-    if (operation.type !== "delete") {
-      writer.write(operation)
-      operation = { type: "delete", tokens: [] }
+    if (bToken && (i >= a.tokens.length || lcsMatrix[i][j + 1] >= lcsMatrix[i + 1][j])) {
+      if (isWhitespace(bValue || '')) {
+        if (operation.type !== "insert-whitespace") {
+          writer.write(operation);
+          operation = { type: "insert-whitespace", tokens: [] };
+        }
+      } else {
+        if (operation.type !== "insert") {
+          writer.write(operation);
+          operation = { type: "insert", tokens: [] };
+        }
+      }
+      operation.tokens.push(bToken);
+      j++;
+      continue;
     }
 
-    const token = a.tokens[i]
-    token.value = token.value.replaceAll(
-      a.indentType.repeat(a.indentAmount),
-      b.indentType.repeat(b.indentAmount)
-    )
-    operation.tokens.push(token)
-
-    i++
+    if (aToken) {
+      if (isWhitespace(aValue || '')) {
+        if (operation.type !== "delete-whitespace") {
+          writer.write(operation);
+          operation = { type: "delete-whitespace", tokens: [] };
+        }
+      } else {
+        if (operation.type !== "delete") {
+          writer.write(operation);
+          operation = { type: "delete", tokens: [] };
+        }
+      }
+      const token = { ...aToken, value: aValue!.replaceAll(
+        a.indentType.repeat(a.indentAmount),
+        b.indentType.repeat(b.indentAmount)
+      )};
+      operation.tokens.push(token);
+      i++;
+    }
   }
 
   if (operation.tokens.length > 0) {
@@ -158,19 +162,20 @@ function computeLCSMatrix(
   tokensA: DiffToken[],
   tokensB: DiffToken[]
 ): number[][] {
-  const lcsMatrix: number[][] = Array(tokensA.length + 1)
+  const lcsMatrix: Array<Array<number>> = Array(tokensA.length + 1)
     .fill(null)
-    .map(() => Array(tokensB.length + 1).fill(0))
+    .map(() => Array(tokensB.length + 1).fill(0));
 
   for (let i = tokensA.length - 1; i >= 0; i--) {
     for (let j = tokensB.length - 1; j >= 0; j--) {
-      if (tokensA[i].value === tokensB[j].value) {
-        lcsMatrix[i][j] = lcsMatrix[i + 1][j + 1] + 1
+      if (tokensA[i].value === tokensB[j].value && !/^\s+$/.test(tokensA[i].value)) {
+        lcsMatrix[i][j] = lcsMatrix[i + 1][j + 1] + 1;
       } else {
-        lcsMatrix[i][j] = Math.max(lcsMatrix[i + 1][j], lcsMatrix[i][j + 1])
+        lcsMatrix[i][j] = Math.max(lcsMatrix[i + 1][j], lcsMatrix[i][j + 1]);
       }
     }
   }
 
-  return lcsMatrix
+
+  return lcsMatrix;
 }
