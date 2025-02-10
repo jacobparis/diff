@@ -81,7 +81,6 @@ export function diffTokens<TWriter extends Writer<unknown> = ArrayWriter>({
       }
 
       if (bToken) {
-        console.log("last chance insert", bToken.value)
         operation.tokens.push(bToken)
         j++
       }
@@ -96,7 +95,6 @@ export function diffTokens<TWriter extends Writer<unknown> = ArrayWriter>({
       }
 
       if (aToken) {
-        console.log("last chance delete", j, aToken.value)
         operation.tokens.push(aToken)
         i++
       }
@@ -163,27 +161,22 @@ export function diffTokens<TWriter extends Writer<unknown> = ArrayWriter>({
     tokensA: DiffToken[],
     tokensB: DiffToken[]
   ): number[][] {
+    const timeStart = performance.now()
+    const WINDOW_SIZE = 200 // Adjust based on testing
     const lcsMatrix: Array<Array<number>> = Array(tokensA.length + 1)
       .fill(null)
       .map(() => Array(tokensB.length + 1).fill(0))
 
     for (let i = tokensA.length - 1; i >= 0; i--) {
-      for (let j = tokensB.length - 1; j >= 0; j--) {
+      // Calculate window boundaries relative to the current position
+      const windowStart = Math.max(0, i - WINDOW_SIZE)
+      const windowEnd = Math.min(tokensB.length, i + WINDOW_SIZE)
+
+      for (let j = windowEnd - 1; j >= windowStart; j--) {
         const aValue = hashToken(tokensA[i].value)
         const bValue = hashToken(tokensB[j].value)
 
         if (aValue === bValue) {
-          // // evaluate
-          // if (aValue.match(/^\s+$/)) {
-          //   const prevAValue = hashToken(tokensA[i + 1].value)
-          //   const prevBValue = hashToken(tokensB[j + 1].value)
-
-          //   if (prevAValue !== prevBValue) {
-          //     lcsMatrix[i][j] = Math.max(lcsMatrix[i + 1][j], lcsMatrix[i][j + 1]);
-          //     continue
-          //   }
-          // }
-
           lcsMatrix[i][j] = lcsMatrix[i + 1][j + 1] + 1
         } else {
           lcsMatrix[i][j] = Math.max(lcsMatrix[i + 1][j], lcsMatrix[i][j + 1])

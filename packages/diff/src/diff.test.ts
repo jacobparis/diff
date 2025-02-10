@@ -1,10 +1,9 @@
 import { describe, it, expect } from "vitest"
 import { tokenize } from "./tokenize.js"
 import { diffTokens } from "./diff.js"
-import { diffArrayToString } from "./array.js"
+import { diffArrayToString, diffStringToArray } from "./array.js"
 import { diffStreamToString, ReadableStreamWriter } from "./stream.js"
 import files from "./files.js"
-
 
 const removeSemi = {
   a: "import * as React from 'react';",
@@ -173,8 +172,6 @@ describe("Reconstruct with Removals Omitted", () => {
 
     expect(result).toBe(files.bContent)
   })
-
-
 })
 
 describe("Additional Diff Tests", () => {
@@ -306,9 +303,9 @@ describe("Tailwind Class Changes", () => {
 
     const result = diffArrayToString(diff)
     // Should show mt-2 as an addition without marking the whole className
-    expect(result).toContain('[+  mt-2')
-    expect(result).not.toContain('[- px-4')
-    expect(result).not.toContain('[- py-2')
+    expect(result).toContain("[+  mt-2")
+    expect(result).not.toContain("[- px-4")
+    expect(result).not.toContain("[- py-2")
   })
 
   it("should mark single class removal as a word change", async () => {
@@ -328,9 +325,9 @@ describe("Tailwind Class Changes", () => {
 
     const result = diffArrayToString(diff)
     // Should show mt-2 as a deletion without marking the whole className
-    expect(result).toContain('[-  mt-2')
-    expect(result).not.toContain('[+ px-4')
-    expect(result).not.toContain('[+ py-2')
+    expect(result).toContain("[-  mt-2")
+    expect(result).not.toContain("[+ px-4")
+    expect(result).not.toContain("[+ py-2")
   })
 
   it("should handle multiple class changes efficiently", async () => {
@@ -350,12 +347,12 @@ describe("Tailwind Class Changes", () => {
 
     const result = diffArrayToString(diff)
     // Should show specific class changes without affecting unchanged classes
-    expect(result).toContain('[- mt-2')
-    expect(result).toContain('[+ mt-4')
-    expect(result).toContain('[- text-sm')
-    expect(result).toContain('[+ text-lg')
-    expect(result).not.toContain('[- px-4')
-    expect(result).not.toContain('[- py-2')
+    expect(result).toContain("[- mt-2")
+    expect(result).toContain("[+ mt-4")
+    expect(result).toContain("[- text-sm")
+    expect(result).toContain("[+ text-lg")
+    expect(result).not.toContain("[- px-4")
+    expect(result).not.toContain("[- py-2")
   })
 })
 
@@ -387,8 +384,10 @@ describe("Line Removal Test", () => {
 describe("Function Overlap Test", () => {
   it("should recognize overlapping changes in toggleSidebar function", async () => {
     const { aContent, bContent } = {
-      "aContent": "// This sets the cookie to keep the sidebar state.\ndocument.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`\n},\n[setOpenProp, open]\n)\n\n// Helper to toggle the sidebar.\nconst toggleSidebar = React.useCallback(() => {\nreturn isMobile\n? setOpenMobile((open) => !open)\n: setOpen((open) => !open)\n}, [isMobile, setOpen, setOpenMobile])\n",
-      bContent: "// This sets the cookie to keep the sidebar state.\ndocument.cookie = `${SIDEBAR_COOKIE_NAME}=${open}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`\n},\n[setOpenProp, open],\n)\n\n// Helper to toggle the sidebar.\nconst toggleSidebar = React.useCallback(() => {\nreturn isMobile ? setOpenMobile((open) => !open) : setOpen((open) => !open)\n}, [isMobile, setOpen, setOpenMobile])\n"
+      aContent:
+        "// This sets the cookie to keep the sidebar state.\ndocument.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`\n},\n[setOpenProp, open]\n)\n\n// Helper to toggle the sidebar.\nconst toggleSidebar = React.useCallback(() => {\nreturn isMobile\n? setOpenMobile((open) => !open)\n: setOpen((open) => !open)\n}, [isMobile, setOpen, setOpenMobile])\n",
+      bContent:
+        "// This sets the cookie to keep the sidebar state.\ndocument.cookie = `${SIDEBAR_COOKIE_NAME}=${open}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`\n},\n[setOpenProp, open],\n)\n\n// Helper to toggle the sidebar.\nconst toggleSidebar = React.useCallback(() => {\nreturn isMobile ? setOpenMobile((open) => !open) : setOpen((open) => !open)\n}, [isMobile, setOpen, setOpenMobile])\n",
     }
 
     const diff = diffTokens({
@@ -412,10 +411,12 @@ document.cookie = \`\${SIDEBAR_COOKIE_NAME}`)
 const toggleSidebar = React.useCallback(() => {`)
   })
 
-  it('should handle multi-line tokens', async () => {
+  it("should handle multi-line tokens", async () => {
     const { aContent, bContent } = {
-      "aContent": "SidebarMenuBadge.displayName = \"SidebarMenuBadge\"\n\nconst SidebarMenuSub = React.forwardRef<\nHTMLUListElement,\nReact.ComponentProps<\"ul\">\n>(({ className, ...props }, ref) => (\n<ul\nref={ref}\ndata-sidebar=\"menu-sub\"\nclassName={cn(\n\"mx-3.5 flex min-w-0 translate-x-px flex-col gap-1 border-l border-sidebar-border px-2.5 py-0.5\",\n\"group-data-[collapsible=icon]:hidden\",\nclassName\n)}\n{...props}\n/>\n))\nSidebarMenuSub.displayName = \"SidebarMenuSub\"\n\nconst SidebarMenuSubItem = React.forwardRef<\nHTMLLIElement,\nReact.ComponentProps<\"li\">\n>(({ ...props }, ref) => <li ref={ref} {...props} />)\nSidebarMenuSubItem.displayName = \"SidebarMenuSubItem\"\n\nconst SidebarMenuSubButton = React.forwardRef<\nHTMLAnchorElement,\nReact.ComponentProps<\"a\"> & {\nasChild?: boolean\nsize?: \"sm\" | \"md\"\nisActive?: boolean\n}\n>(({ asChild = false, size = \"md\", isActive, className, ...props }, ref) => {\nconst Comp = asChild ? Slot : \"a\"\n\nreturn (\n<Comp\nref={ref}\ndata-sidebar=\"menu-sub-button\"\ndata-size={size}\ndata-active={isActive}\nclassName={cn(\n\"flex h-7 min-w-0 -translate-x-px items-center gap-2 overflow-hidden rounded-md px-2 text-sidebar-foreground outline-none ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-sidebar-accent-foreground\",\n\"data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground\",\nsize === \"sm\" && \"text-xs\",\nsize === \"md\" && \"text-sm\",\n\"group-data-[collapsible=icon]:hidden\",\nclassName\n)}\n{...props}\n/>\n)\n})\nSidebarMenuSubButton.displayName = \"SidebarMenuSubButton\"\n\nexport {\nSidebar,\nSidebarContent,\nSidebarFooter,\nSidebarGroup,\nSidebarGroupAction,\nSidebarGroupContent,\nSidebarGroupLabel,\nSidebarHeader,\nSidebarInput,\nSidebarInset,\nSidebarMenu,\nSidebarMenuAction,\nSidebarMenuBadge,\nSidebarMenuButton,\nSidebarMenuItem,\nSidebarMenuSub,\nSidebarMenuSubButton,\nSidebarMenuSubItem,\nSidebarProvider,\nSidebarSeparator,\nSidebarTrigger,\nSidebarRail,\nuseSidebar,\n}\n",
-      "bContent": "SidebarMenuBadge.displayName = \"SidebarMenuBadge\"\n\nconst SidebarMenuSkeleton = ({\nref,\nclassName,\nshowIcon = false,\n...props\n}: React.ComponentProps<\"div\"> & {\nshowIcon?: boolean\n}) => {\n// Random width between 50 to 90%.\nconst width = React.useMemo(() => {\nreturn `${Math.floor(Math.random() * 40) + 50}%`\n}, [])\n\nreturn (\n<div\nref={ref}\ndata-sidebar=\"menu-skeleton\"\nclassName={cn(\"flex h-8 items-center gap-2 rounded-md px-2\", className)}\n{...props}\n>\n{showIcon && <Skeleton className=\"size-4 rounded-md\" data-sidebar=\"menu-skeleton-icon\" />}\n<Skeleton\nclassName=\"h-4 max-w-[--skeleton-width] flex-1\"\ndata-sidebar=\"menu-skeleton-text\"\nstyle={\n{\n\"--skeleton-width\": width,\n} as React.CSSProperties\n}\n/>\n</div>\n)\n}\nSidebarMenuSkeleton.displayName = \"SidebarMenuSkeleton\"\n\nconst SidebarMenuSub = ({ ref, className, ...props }: React.ComponentProps<\"ul\">) => (\n<ul\nref={ref}\ndata-sidebar=\"menu-sub\"\nclassName={cn(\n\"mx-3.5 flex min-w-0 translate-x-px flex-col gap-1 border-l border-sidebar-border px-2.5 py-0.5\",\n\"group-data-[collapsible=icon]:hidden\",\nclassName,\n)}\n{...props}\n/>\n)\nSidebarMenuSub.displayName = \"SidebarMenuSub\"\n\nconst SidebarMenuSubItem = ({ ref, ...props }: React.ComponentProps<\"li\">) => (\n<li ref={ref} {...props} />\n)\nSidebarMenuSubItem.displayName = \"SidebarMenuSubItem\"\n\nconst SidebarMenuSubButton = ({\nref,\nasChild = false,\nsize = \"md\",\nisActive,\nclassName,\n...props\n}: React.ComponentProps<\"a\"> & {\nasChild?: boolean\nsize?: \"sm\" | \"md\"\nisActive?: boolean\n}) => {\nconst Comp = asChild ? Slot : \"a\"\n\nreturn (\n<Comp\nref={ref}\ndata-sidebar=\"menu-sub-button\"\ndata-size={size}\ndata-active={isActive}\nclassName={cn(\n\"flex h-7 min-w-0 -translate-x-px items-center gap-2 overflow-hidden rounded-md px-2 text-sidebar-foreground outline-none ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-sidebar-accent-foreground\",\n\"data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground\",\nsize === \"sm\" && \"text-sm\",\nsize === \"md\" && \"text-sm\",\n\"group-data-[collapsible=icon]:hidden\",\nclassName,\n)}\n{...props}\n/>\n)\n}\nSidebarMenuSubButton.displayName = \"SidebarMenuSubButton\"\n\nexport {\nSidebar,\nSidebarContent,\nSidebarFooter,\nSidebarGroup,\nSidebarGroupAction,\nSidebarGroupContent,\nSidebarGroupLabel,\nSidebarHeader,\nSidebarInput,\nSidebarInset,\nSidebarMenu,\nSidebarMenuAction,\nSidebarMenuBadge,\nSidebarMenuButton,\nSidebarMenuItem,\nSidebarMenuSkeleton,\nSidebarMenuSub,\nSidebarMenuSubButton,\nSidebarMenuSubItem,\nSidebarProvider,\nSidebarRail,\nSidebarSeparator,\nSidebarTrigger,\nuseSidebar,\n}\n"
+      aContent:
+        'SidebarMenuBadge.displayName = "SidebarMenuBadge"\n\nconst SidebarMenuSub = React.forwardRef<\nHTMLUListElement,\nReact.ComponentProps<"ul">\n>(({ className, ...props }, ref) => (\n<ul\nref={ref}\ndata-sidebar="menu-sub"\nclassName={cn(\n"mx-3.5 flex min-w-0 translate-x-px flex-col gap-1 border-l border-sidebar-border px-2.5 py-0.5",\n"group-data-[collapsible=icon]:hidden",\nclassName\n)}\n{...props}\n/>\n))\nSidebarMenuSub.displayName = "SidebarMenuSub"\n\nconst SidebarMenuSubItem = React.forwardRef<\nHTMLLIElement,\nReact.ComponentProps<"li">\n>(({ ...props }, ref) => <li ref={ref} {...props} />)\nSidebarMenuSubItem.displayName = "SidebarMenuSubItem"\n\nconst SidebarMenuSubButton = React.forwardRef<\nHTMLAnchorElement,\nReact.ComponentProps<"a"> & {\nasChild?: boolean\nsize?: "sm" | "md"\nisActive?: boolean\n}\n>(({ asChild = false, size = "md", isActive, className, ...props }, ref) => {\nconst Comp = asChild ? Slot : "a"\n\nreturn (\n<Comp\nref={ref}\ndata-sidebar="menu-sub-button"\ndata-size={size}\ndata-active={isActive}\nclassName={cn(\n"flex h-7 min-w-0 -translate-x-px items-center gap-2 overflow-hidden rounded-md px-2 text-sidebar-foreground outline-none ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-sidebar-accent-foreground",\n"data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground",\nsize === "sm" && "text-xs",\nsize === "md" && "text-sm",\n"group-data-[collapsible=icon]:hidden",\nclassName\n)}\n{...props}\n/>\n)\n})\nSidebarMenuSubButton.displayName = "SidebarMenuSubButton"\n\nexport {\nSidebar,\nSidebarContent,\nSidebarFooter,\nSidebarGroup,\nSidebarGroupAction,\nSidebarGroupContent,\nSidebarGroupLabel,\nSidebarHeader,\nSidebarInput,\nSidebarInset,\nSidebarMenu,\nSidebarMenuAction,\nSidebarMenuBadge,\nSidebarMenuButton,\nSidebarMenuItem,\nSidebarMenuSub,\nSidebarMenuSubButton,\nSidebarMenuSubItem,\nSidebarProvider,\nSidebarSeparator,\nSidebarTrigger,\nSidebarRail,\nuseSidebar,\n}\n',
+      bContent:
+        'SidebarMenuBadge.displayName = "SidebarMenuBadge"\n\nconst SidebarMenuSkeleton = ({\nref,\nclassName,\nshowIcon = false,\n...props\n}: React.ComponentProps<"div"> & {\nshowIcon?: boolean\n}) => {\n// Random width between 50 to 90%.\nconst width = React.useMemo(() => {\nreturn `${Math.floor(Math.random() * 40) + 50}%`\n}, [])\n\nreturn (\n<div\nref={ref}\ndata-sidebar="menu-skeleton"\nclassName={cn("flex h-8 items-center gap-2 rounded-md px-2", className)}\n{...props}\n>\n{showIcon && <Skeleton className="size-4 rounded-md" data-sidebar="menu-skeleton-icon" />}\n<Skeleton\nclassName="h-4 max-w-[--skeleton-width] flex-1"\ndata-sidebar="menu-skeleton-text"\nstyle={\n{\n"--skeleton-width": width,\n} as React.CSSProperties\n}\n/>\n</div>\n)\n}\nSidebarMenuSkeleton.displayName = "SidebarMenuSkeleton"\n\nconst SidebarMenuSub = ({ ref, className, ...props }: React.ComponentProps<"ul">) => (\n<ul\nref={ref}\ndata-sidebar="menu-sub"\nclassName={cn(\n"mx-3.5 flex min-w-0 translate-x-px flex-col gap-1 border-l border-sidebar-border px-2.5 py-0.5",\n"group-data-[collapsible=icon]:hidden",\nclassName,\n)}\n{...props}\n/>\n)\nSidebarMenuSub.displayName = "SidebarMenuSub"\n\nconst SidebarMenuSubItem = ({ ref, ...props }: React.ComponentProps<"li">) => (\n<li ref={ref} {...props} />\n)\nSidebarMenuSubItem.displayName = "SidebarMenuSubItem"\n\nconst SidebarMenuSubButton = ({\nref,\nasChild = false,\nsize = "md",\nisActive,\nclassName,\n...props\n}: React.ComponentProps<"a"> & {\nasChild?: boolean\nsize?: "sm" | "md"\nisActive?: boolean\n}) => {\nconst Comp = asChild ? Slot : "a"\n\nreturn (\n<Comp\nref={ref}\ndata-sidebar="menu-sub-button"\ndata-size={size}\ndata-active={isActive}\nclassName={cn(\n"flex h-7 min-w-0 -translate-x-px items-center gap-2 overflow-hidden rounded-md px-2 text-sidebar-foreground outline-none ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-sidebar-accent-foreground",\n"data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground",\nsize === "sm" && "text-sm",\nsize === "md" && "text-sm",\n"group-data-[collapsible=icon]:hidden",\nclassName,\n)}\n{...props}\n/>\n)\n}\nSidebarMenuSubButton.displayName = "SidebarMenuSubButton"\n\nexport {\nSidebar,\nSidebarContent,\nSidebarFooter,\nSidebarGroup,\nSidebarGroupAction,\nSidebarGroupContent,\nSidebarGroupLabel,\nSidebarHeader,\nSidebarInput,\nSidebarInset,\nSidebarMenu,\nSidebarMenuAction,\nSidebarMenuBadge,\nSidebarMenuButton,\nSidebarMenuItem,\nSidebarMenuSkeleton,\nSidebarMenuSub,\nSidebarMenuSubButton,\nSidebarMenuSubItem,\nSidebarProvider,\nSidebarRail,\nSidebarSeparator,\nSidebarTrigger,\nuseSidebar,\n}\n',
     }
 
     const diff = diffTokens({
@@ -430,16 +431,17 @@ const toggleSidebar = React.useCallback(() => {`)
     })
 
     const result = diffArrayToString(diff, { omit: ["insert", "delete"] })
-    expect(result).toContain('export {')
+    expect(result).toContain("export {")
   })
 })
 
 describe("preserves quotes", () => {
   it("should preserve quotes", async () => {
     const { aContent, bContent } = {
-      "aContent": "\"use client\"\n\nimport * as React from \"react\"",
-      "bContent": "import { PanelLeft } from \"lucide-react\"\nimport * as React from \"react\""
-  }
+      aContent: '"use client"\n\nimport * as React from "react"',
+      bContent:
+        'import { PanelLeft } from "lucide-react"\nimport * as React from "react"',
+    }
 
     const diff = diffTokens({
       a: tokenize({
@@ -452,8 +454,131 @@ describe("preserves quotes", () => {
       }),
     })
 
-    const result = diffArrayToString(diff, { omit: ["equal", "insert"], deleteTagClose: "", deleteTagOpen: "",  }).trim()
+    const result = diffArrayToString(diff, {
+      omit: ["equal", "insert"],
+      deleteTagClose: "",
+      deleteTagOpen: "",
+    }).trim()
     // the space is marked equal, so won't show up in this test where we omit equal
     expect(result).toMatchInlineSnapshot(`""useclient""`)
+  })
+})
+
+describe("Unified Diff Format", () => {
+  it("should parse unified diff format", () => {
+    const unifiedDiff = `"@@ -4,8 +4,8 @@
+   "sideEffects": false,
+   "license": "MIT",
+   "epic-stack": {
+-    "head": "92f9b03d316381b0bea1a109bc6e6ce1363d1852",
+-    "date": "2024-12-20T13:17:31Z"
++    "head": "f7d16453a46cf61005f737fe3414a8a94a45c9b0",
++    "date": "2025-01-04T13:40:29Z"
+   }`
+
+    const operations = diffStringToArray(unifiedDiff, { unifiedDiff: true })
+    expect(operations).toMatchInlineSnapshot(`
+      [
+        {
+          "tokens": [
+            {
+              "end": 16,
+              "start": 0,
+              "value": ""@@ -4,8 +4,8 @@
+      ",
+            },
+          ],
+          "type": "equal",
+        },
+        {
+          "tokens": [
+            {
+              "end": 41,
+              "start": 17,
+              "value": "   "sideEffects": false,
+      ",
+            },
+          ],
+          "type": "equal",
+        },
+        {
+          "tokens": [
+            {
+              "end": 62,
+              "start": 42,
+              "value": "   "license": "MIT",
+      ",
+            },
+          ],
+          "type": "equal",
+        },
+        {
+          "tokens": [
+            {
+              "end": 81,
+              "start": 63,
+              "value": "   "epic-stack": {
+      ",
+            },
+          ],
+          "type": "equal",
+        },
+        {
+          "tokens": [
+            {
+              "end": 138,
+              "start": 82,
+              "value": "    "head": "92f9b03d316381b0bea1a109bc6e6ce1363d1852",
+      ",
+            },
+          ],
+          "type": "delete",
+        },
+        {
+          "tokens": [
+            {
+              "end": 174,
+              "start": 139,
+              "value": "    "date": "2024-12-20T13:17:31Z"
+      ",
+            },
+          ],
+          "type": "delete",
+        },
+        {
+          "tokens": [
+            {
+              "end": 231,
+              "start": 175,
+              "value": "    "head": "f7d16453a46cf61005f737fe3414a8a94a45c9b0",
+      ",
+            },
+          ],
+          "type": "insert",
+        },
+        {
+          "tokens": [
+            {
+              "end": 267,
+              "start": 232,
+              "value": "    "date": "2025-01-04T13:40:29Z"
+      ",
+            },
+          ],
+          "type": "insert",
+        },
+        {
+          "tokens": [
+            {
+              "end": 272,
+              "start": 268,
+              "value": "   }
+      ",
+            },
+          ],
+          "type": "equal",
+        },
+      ]
+    `)
   })
 })
